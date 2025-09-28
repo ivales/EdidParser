@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <filesystem>
+#include <assert.h>
 
 #include "edid-decode.h"
 
@@ -2346,6 +2347,28 @@ static void parse_test_reliability(char *optarg, unsigned &cnt, unsigned &msleep
 	}
 }
 
+std::string parse_edid_to_string() {
+	int original_stdout = dup(1);
+	int fds[2]; 
+	int res; 
+	char buf[65535];
+	int so; 
+	res=pipe(fds);
+	assert(res==0); 
+	so=fileno(stdout);
+	res=dup2(fds[1],so);
+	assert(res!=-1); 
+	state.parse_edid();
+	fflush(stdout);
+	res=read(fds[0],buf,sizeof(buf)-1);
+	assert(res>=0 && res<sizeof(buf));
+	buf[res]=0;
+	res = dup2(original_stdout, 1);
+	assert(res != -1);
+	close(original_stdout);
+	return buf;
+}
+
 std::string extract_year(const std::string& edid_text) {
     size_t pos_made_in = edid_text.find("Made in:");
     std::string year;
@@ -2382,24 +2405,17 @@ std::string extract_year(const std::string& edid_text) {
 }
 
 static void sort_edids_to_table(char* filepath) {
-	std::filesystem::path dirPath = filepath;
-    if (std::filesystem::exists(dirPath) && std::filesystem::is_directory(dirPath)) {
-        for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
-            if (std::filesystem::is_regular_file(entry.status())) {
+	if (std::filesystem::exists(filepath) && std::filesystem::is_directory(filepath)) {
+        for (const auto& entry : std::filesystem::directory_iterator(filepath)) {
+            if (entry.is_regular_file()) {
                 printf("Файл: %s\n", entry.path().filename().c_str());
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
-					std::stringstream buffer;
-					auto* old_buf = std::cout.rdbuf();
-					std::cout.rdbuf(buffer.rdbuf());
-					state.parse_edid();
-					std::cout.rdbuf(old_buf);
-					std::string parsed_edid = buffer.str();
-					std::string _year = extract_year(parsed_edid);
-					std::cout << _year << std::endl;
+					std::string parsed_edid = parse_edid_to_string();
+					printf("%s\n", extract_year(parsed_edid).c_str());
             	}
         	}
 		}
-		exit(1);
+		exit(0);
     } else {
         printf("Директория не найдена или это не директория.\n");
     }
