@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <iostream>
+#include <filesystem>
 
 #include "edid-decode.h"
 
@@ -63,6 +65,7 @@ enum Option {
 	OptReplaceUniqueIDs,
 	OptVersion,
 	OptDiag,
+	
 	OptI2CEDID,
 	OptI2CHDCP,
 	OptI2CHDCPRi,
@@ -80,7 +83,8 @@ enum Option {
 	OptListHDMIVICs,
 	OptListRIDTimings,
 	OptListRIDs,
-	OptLast = 256
+	OptLast = 256,
+	OptDirEdids = 'D'
 };
 
 static char options[OptLast];
@@ -108,6 +112,7 @@ static struct option long_options[] = {
 	{ "fbmode", no_argument, 0, OptFBModeTimings },
 	{ "v4l2-timings", no_argument, 0, OptV4L2Timings },
 	{ "diagonal", required_argument, 0, OptDiag },
+	{ "directory", required_argument, 0, OptDirEdids },
 #ifdef __HAS_I2C_DEV__
 	{ "i2c-adapter", required_argument, 0, OptI2CAdapter },
 	{ "i2c-edid", no_argument, 0, OptI2CEDID },
@@ -162,6 +167,7 @@ static void usage(void)
 	       "  -V, --v4l2-timings    Report all long video timings in v4l2-dv-timings.h format.\n"
 	       "  -s, --skip-hex-dump   Skip the initial hex dump of the EDID.\n"
 	       "  -H, --only-hex-dump   Only output the hex dump of the EDID.\n"
+		   "  -D, --directory       Directory with many edid files for sorting.\n"
 	       "  --skip-sha            Skip the SHA report.\n"
 	       "  --hide-serial-numbers Hide serial numbers with '...'.\n"
 	       "  --replace-unique-ids  Replace unique IDs (serial numbers, dates, Container IDs) with fixed values.\n"
@@ -774,6 +780,8 @@ const char *oui_name(unsigned oui, unsigned *ouinum)
 	switch (oui) {
 	#define oneoui(c,k,n) case c: *ouinum = kOUI_##k; name = n; break;
 	#include "oui.h"
+#include <iostream>
+#include <filesystem>
 	default: *ouinum = 0; name = NULL; break;
 	}
 	return name;
@@ -2338,6 +2346,23 @@ static void parse_test_reliability(char *optarg, unsigned &cnt, unsigned &msleep
 	}
 }
 
+static void sort_edids_to_table(char* filepath) {
+	std::filesystem::path dirPath = filepath;
+    if (std::filesystem::exists(dirPath) && std::filesystem::is_directory(dirPath)) {
+        for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
+            if (std::filesystem::is_regular_file(entry.status())) {
+                printf("Файл: %s\n", entry.path().filename().c_str());
+				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
+					state.parse_edid();
+				}
+            }
+        }
+		exit(1);
+    } else {
+        printf("Директория не найдена или это не директория.\n");
+    }
+}
+
 int main(int argc, char **argv)
 {
 	char short_options[26 * 2 * 3 + 1];
@@ -2411,6 +2436,9 @@ int main(int argc, char **argv)
 			break;
 		case OptDiag:
 			state.diagonal = strtod(optarg, NULL);
+			break;
+		case OptDirEdids:
+			sort_edids_to_table(optarg);
 			break;
 #ifdef __HAS_I2C_DEV__
 		case OptI2CAdapter: {
@@ -2638,7 +2666,7 @@ extern "C" int parse_edid(const char *input)
 	options[OptSkipSHA] = 0;
 	options[OptUTF8] = 1;
 	state = edid_state();
-	int ret = edid_from_file(input, stderr);
+	int ret = edid_from_file(input, stderr);edid_d
 	return ret ? ret : state.parse_edid();
 }
 
