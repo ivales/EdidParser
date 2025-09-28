@@ -2346,6 +2346,41 @@ static void parse_test_reliability(char *optarg, unsigned &cnt, unsigned &msleep
 	}
 }
 
+std::string extract_year(const std::string& edid_text) {
+    size_t pos_made_in = edid_text.find("Made in:");
+    std::string year;
+
+    if (pos_made_in != std::string::npos) {
+        size_t start = pos_made_in;
+        size_t end = edid_text.find('\n', start);
+        if (end == std::string::npos)
+            end = edid_text.length();
+
+        std::string made_in_str = edid_text.substr(start, end - start);
+        if (made_in_str.size() >= 4)
+            year = made_in_str.substr(made_in_str.size() - 4);
+        else
+            year = "";
+    }
+
+    if (year.empty()) {
+        size_t pos_model_year = edid_text.find("Model year:");
+        if (pos_model_year != std::string::npos) {
+            size_t start = pos_model_year;
+            size_t end = edid_text.find('\n', start);
+            if (end == std::string::npos)
+                end = edid_text.length();
+
+            std::string model_year_str = edid_text.substr(start, end - start);
+            if (model_year_str.size() >= 4)
+                year = model_year_str.substr(model_year_str.size() - 4);
+            else
+                year = "";
+        }
+    }
+    return year;
+}
+
 static void sort_edids_to_table(char* filepath) {
 	std::filesystem::path dirPath = filepath;
     if (std::filesystem::exists(dirPath) && std::filesystem::is_directory(dirPath)) {
@@ -2353,10 +2388,17 @@ static void sort_edids_to_table(char* filepath) {
             if (std::filesystem::is_regular_file(entry.status())) {
                 printf("Файл: %s\n", entry.path().filename().c_str());
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
+					std::stringstream buffer;
+					auto* old_buf = std::cout.rdbuf();
+					std::cout.rdbuf(buffer.rdbuf());
 					state.parse_edid();
-				}
-            }
-        }
+					std::cout.rdbuf(old_buf);
+					std::string parsed_edid = buffer.str();
+					std::string _year = extract_year(parsed_edid);
+					std::cout << _year << std::endl;
+            	}
+        	}
+		}
 		exit(1);
     } else {
         printf("Директория не найдена или это не директория.\n");
