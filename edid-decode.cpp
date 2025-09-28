@@ -2369,6 +2369,17 @@ std::string parse_edid_to_string() {
 	return buf;
 }
 
+std::string extract_cec(const std::string& edid_text) {
+	size_t pos = edid_text.find("Source physical address:");
+	if (pos != std::string::npos) {
+		size_t start = pos + strlen("Source physical address:");
+		if (start + 8 <= edid_text.size()) {
+			return edid_text.substr(start, 8);
+		}
+	}
+	return "";
+}
+
 std::string extract_year(const std::string& edid_text) {
     size_t pos_made_in = edid_text.find("Made in:");
     std::string year;
@@ -2412,6 +2423,7 @@ static void sort_edids_to_table(char* filepath) {
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
 					std::string parsed_edid = parse_edid_to_string();
 					printf("%s\n", extract_year(parsed_edid).c_str());
+					printf("%s\n", extract_cec(parsed_edid).c_str());
             	}
         	}
 		}
