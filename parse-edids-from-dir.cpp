@@ -1,6 +1,4 @@
-#include <cstddef>
-#include <string>
-
+#include "parse-edids-from-dir.h"
 
 std::string extract_cec(const std::string& edid_text) {
 	size_t pos = edid_text.find("Source physical address:");

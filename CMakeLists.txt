@@ -4,7 +4,7 @@ project(EdidParser CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(EdidParser
+add_executable(edidParser
  	calc-gtf-cvt.cpp
 	calc-ovt.cpp
 	edid-decode.cpp

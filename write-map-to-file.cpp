@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
-#include <map>
 #include <set>
-#include <string>
+
+#include "write-map-to-file.h"
 
 std::string parse_filename_to_model(const std::string& filename, const char& splitter) {
 	size_t firstPos = filename.find(splitter);
@@ -11,12 +11,17 @@ std::string parse_filename_to_model(const std::string& filename, const char& spl
         size_t secondPos = filename.find(splitter, firstPos + 1);
 
         if (secondPos != std::string::npos) {
-            return filename.substr(0, secondPos);
+            size_t thirdPos = filename.find(splitter, secondPos+1);
+            if (thirdPos != std::string::npos) {
+                return filename.substr(0, thirdPos);
+            } else {
+                return filename.substr(0, secondPos) + "_UnknownInput";
+            }
         } else {
-            return filename.substr(0, firstPos) + "_Unknown";
+            return filename.substr(0, firstPos) + "_UnknownModel_UnknownInput";
         }
     } else {
-        return "Unknown_Unknown";
+        return "UnknownBrand_UnknownModel_UnknownInput";
     }
 }
 

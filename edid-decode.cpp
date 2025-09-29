@@ -18,10 +18,12 @@
 #include <iostream>
 #include <filesystem>
 #include <assert.h>
+#include <fstream>
+#include <map>
 
 #include "edid-decode.h"
-#include "parse-edids-from-dir.cpp"
-#include "write-map-to-file.cpp"
+#include "parse-edids-from-dir.h"
+#include "write-map-to-file.h"
 
 #define STR(x) #x
 #define STRING(x) STR(x)
@@ -2384,7 +2386,7 @@ static void sort_edids_to_table(char* filepath) {
 				std::map<std::string, std::string> inner_map;
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
 					std::string parsed_edid = parse_edid_to_string();
-					model = parse_filename_to_model(entry.path().string(), '_');
+					model = parse_filename_to_model(entry.path().filename().string(), '_');
 					if (parsed_edid.length() < 500) {
 						inner_map = {
 							{"Год", ""}
