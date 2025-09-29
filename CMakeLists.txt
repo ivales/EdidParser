@@ -14,4 +14,5 @@ add_executable(EdidParser
 	parse-displayid-block.cpp
 	parse-ls-ext-block.cpp
 	parse-vtb-ext-block.cpp
-	parse-if.cpp)
+	parse-if.cpp
+	parse-edids-from-dir.cpp)
