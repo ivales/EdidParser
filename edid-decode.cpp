@@ -2420,6 +2420,7 @@ static void sort_edids_to_table(char* filepath) {
         for (const auto& entry : std::filesystem::directory_iterator(filepath)) {
             if (entry.is_regular_file()) {
                 printf("Файл: %s\n", entry.path().filename().c_str());
+				state = edid_state();
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
 					std::string parsed_edid = parse_edid_to_string();
 					printf("%s\n", extract_year(parsed_edid).c_str());
