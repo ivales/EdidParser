@@ -21,6 +21,7 @@
 
 #include "edid-decode.h"
 #include "parse-edids-from-dir.cpp"
+#include "write-map-to-file.cpp"
 
 #define STR(x) #x
 #define STRING(x) STR(x)
@@ -784,6 +785,7 @@ const char *oui_name(unsigned oui, unsigned *ouinum)
 	#include "oui.h"
 #include <iostream>
 #include <filesystem>
+#include <map>
 	default: *ouinum = 0; name = NULL; break;
 	}
 	return name;
@@ -2348,7 +2350,7 @@ static void parse_test_reliability(char *optarg, unsigned &cnt, unsigned &msleep
 	}
 }
 
-std::string parse_edid_to_string() {
+static std::string parse_edid_to_string() {
 	int original_stdout = dup(1);
 	int fds[2]; 
 	int res; 
@@ -2371,18 +2373,35 @@ std::string parse_edid_to_string() {
 }
 
 static void sort_edids_to_table(char* filepath) {
+
 	if (std::filesystem::exists(filepath) && std::filesystem::is_directory(filepath)) {
+		std::map<std::string, std::map<std::string, std::string>> data;
+		std::string model;
         for (const auto& entry : std::filesystem::directory_iterator(filepath)) {
             if (entry.is_regular_file()) {
                 printf("Файл: %s\n", entry.path().filename().c_str());
 				state = edid_state();
+				std::map<std::string, std::string> inner_map;
 				if (edid_from_file(entry.path().c_str(), stdout) == 0) {
 					std::string parsed_edid = parse_edid_to_string();
-					printf("%s\n", extract_year(parsed_edid).c_str());
-					printf("%s\n", extract_cec(parsed_edid).c_str());
+					model = parse_filename_to_model(entry.path().string(), '_');
+					if (parsed_edid.length() < 500) {
+						inner_map = {
+							{"Год", ""}
+						};
+						continue;
+					}
+					else {
+						inner_map = {
+							{"Год", extract_year(parsed_edid)}
+						};
+					}
+					data[model] = inner_map;	
+
             	}
         	}
 		}
+		write_map_to_csv("test-output.csv", data);
 		exit(0);
     } else {
         printf("Директория не найдена или это не директория.\n");

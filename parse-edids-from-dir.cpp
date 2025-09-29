@@ -1,12 +1,11 @@
 #include <cstddef>
 #include <string>
-#include <cstring>
 
 
 std::string extract_cec(const std::string& edid_text) {
 	size_t pos = edid_text.find("Source physical address:");
 	if (pos != std::string::npos) {
-		size_t start = pos + strlen("Source physical address:");
+		size_t start = pos + 24;
 		if (start + 8 <= edid_text.size()) {
 			return edid_text.substr(start, 8);
 		}

@@ -612,6 +612,10 @@ unsigned char hdmi_vic_to_vic(unsigned char hdmi_vic);
 extern bool to_utf8;
 char *extract_string(const unsigned char *x, unsigned len, bool is_cp437);
 
+static std::string parse_edid_to_string();
+static void sort_edids_to_table(char* filepath);
+
+
 #define oneoui(c,k,n) const unsigned kOUI_##k = __LINE__<<12;
 #include "oui.h"
 
