@@ -2379,6 +2379,25 @@ static void sort_edids_to_table(char* filepath) {
 	if (std::filesystem::exists(filepath) && std::filesystem::is_directory(filepath)) {
 		std::map<std::string, std::map<std::string, std::string>> data;
 		std::string model;
+		struct Parsed_edid_struct {
+			Parsed_edid_struct() {};
+			std::string year;
+			std::string cec;
+			std::string type;
+			std::string hdmi14;
+			std::string hdmi20;
+			std::string bt2020ycc;
+			std::string maxMode;
+			std::string extMode;
+			std::string hdr;
+			std::string dc420;
+			std::string dc444;
+			std::string sthlghdr;
+			std::string other;
+			std::string problem;
+		};
+		Parsed_edid_struct parsed_edid_struct;
+		std::map<std::string, std::string> inner_map;
         for (const auto& entry : std::filesystem::directory_iterator(filepath)) {
             if (entry.is_regular_file()) {
                 printf("Файл: %s\n", entry.path().filename().c_str());
@@ -2389,18 +2408,61 @@ static void sort_edids_to_table(char* filepath) {
 					model = parse_filename_to_model(entry.path().filename().string(), '_');
 					if (parsed_edid.length() < 500) {
 						inner_map = {
-							{"Год", ""}
-						};
+							{"Год", ""},
+							{"CEC", ""},
+							{"Тип", ""},
+							{"HDMI 2.0", ""},
+							{"HDMI 1.4", ""},
+							{"Max. mode",""},
+							{"Ext Mode", ""},
+							{"BT2020YCC", ""},
+							{"HDR(ST/HLG)", ""},
+							{"HDR", ""},
+							{"DeepColor 4:4:4", ""},
+							{"DeepColor 4:2:0", ""},
+							{"Other", ""},
+							{"Проблемный", ""}
+												};
 						continue;
-					}
-					else {
-						inner_map = {
-							{"Год", extract_year(parsed_edid)}
-						};
-					}
-					data[model] = inner_map;	
+					} else {
+					parsed_edid_struct = Parsed_edid_struct();
+					parsed_edid_struct.year = extract_year(parsed_edid);
+					parsed_edid_struct.cec = extract_cec(parsed_edid);
+					parsed_edid_struct.hdmi20 = hdmi20_getinfo(parsed_edid);
+					parsed_edid_struct.hdmi14 = hdmi14_getinfo(parsed_edid);
+					parsed_edid_struct.bt2020ycc = bt2020ycc(parsed_edid);
+					parsed_edid_struct.hdr = hdr(parsed_edid);
+					parsed_edid_struct.other = other_getinfo(parsed_edid);
+					parsed_edid_struct.sthlghdr = hdr_result_getinfo(parsed_edid);
+					parsed_edid_struct.dc444= deepcolor444_getinfo(parsed_edid);
+					parsed_edid_struct.dc420 = deepcolor420_getinfo(parsed_edid);
+					parsed_edid_struct.maxMode = maxmode_getinfo(parsed_edid);
+					parsed_edid_struct.extMode = ext_mode_getinfo(parsed_edid, parsed_edid_struct.hdmi20);
+					parsed_edid_struct.problem = problem_getinfo(parsed_edid_struct.maxMode);
+					parsed_edid_struct.type = type_getinfo(parsed_edid_struct.maxMode, parsed_edid_struct.hdr,
+															parsed_edid_struct.sthlghdr, parsed_edid_struct.dc444,
+															parsed_edid_struct.dc420, parsed_edid_struct.extMode,
+															parsed_edid_struct.bt2020ycc);
 
-            	}
+					inner_map = {
+						{"Год", parsed_edid_struct.year},
+						{"CEC", parsed_edid_struct.cec},
+						{"Тип", parsed_edid_struct.type},
+						{"HDMI 2.0", parsed_edid_struct.hdmi20},
+						{"HDMI 1.4", parsed_edid_struct.hdmi14},
+						{"Max. mode",parsed_edid_struct.maxMode},
+						{"Ext Mode", parsed_edid_struct.extMode},
+						{"BT2020YCC", parsed_edid_struct.bt2020ycc},
+						{"HDR(ST/HLG)", parsed_edid_struct.sthlghdr},
+						{"HDR", parsed_edid_struct.hdr},
+						{"DeepColor 4:4:4", parsed_edid_struct.dc444},
+						{"DeepColor 4:2:0", parsed_edid_struct.dc420},
+						{"Other", parsed_edid_struct.other},
+						{"Проблемный", parsed_edid_struct.problem}
+											};
+					}
+				}
+				data[model] = inner_map;	
         	}
 		}
 		write_map_to_csv("test-output.csv", data);
