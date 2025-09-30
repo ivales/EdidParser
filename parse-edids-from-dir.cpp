@@ -185,8 +185,8 @@ std::string maxmode_getinfo(const std::string& edid_text) {
         return haystack.find(needle) != std::string::npos;
     };
 
-    bool cond1 = contains(edid_vdblock, "VIC  198") && (contains(edid_420vdb, "VIC  198") || contains(edid_420cmvdb, "VIC  198"));
-    if (cond1) {
+    bool eightK = contains(edid_vdblock, "VIC  198") && (contains(edid_420vdb, "VIC  198") || contains(edid_420cmvdb, "VIC  198"));
+    if (eightK) {
         if (contains(edid_vdblock, "VIC  199")) {
             return "4320p50,60Hz444,420";
         } else {
@@ -206,8 +206,8 @@ std::string maxmode_getinfo(const std::string& edid_text) {
         }
     }
 
-    bool cond2 = contains(edid_vdblock, "VIC  96") && (contains(edid_420vdb, "VIC  96") || contains(edid_420cmvdb, "VIC  96"));
-    if (cond2) {
+    bool fourK = contains(edid_vdblock, "VIC  96") && (contains(edid_420vdb, "VIC  96") || contains(edid_420cmvdb, "VIC  96"));
+    if (fourK) {
         if (contains(edid_vdblock, "VIC  97")) {
             return "2160p50,60Hz444,420";
         } else {
