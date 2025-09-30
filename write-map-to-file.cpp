@@ -11,7 +11,7 @@ std::string parse_filename_to_model(const std::string& filename, const char& spl
         size_t secondPos = filename.find(splitter, firstPos + 1);
 
         if (secondPos != std::string::npos) {
-            size_t thirdPos = filename.find(splitter, secondPos+1);
+            size_t thirdPos = filename.find('.', secondPos+1);
             if (thirdPos != std::string::npos) {
                 return filename.substr(0, thirdPos);
             } else {
@@ -44,7 +44,7 @@ void write_map_to_csv(
 
     file << "Модель ТВ";
     for (const auto& col_name : columns) {
-        file << "," << col_name;
+        file << ";" << col_name;
     }
     file << "\n";
 
@@ -52,7 +52,7 @@ void write_map_to_csv(
         file << row_pair.first;
 
         for (const auto& col_name : columns) {
-            file << ",";
+            file << ";";
             auto it = row_pair.second.find(col_name);
             if (it != row_pair.second.end()) {
                 file << it->second;
