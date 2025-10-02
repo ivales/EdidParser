@@ -33,209 +33,32 @@ static edid_state state;
 static unsigned char edid[EDID_PAGE_SIZE * EDID_MAX_BLOCKS];
 static bool odd_hex_digits;
 
-enum output_format {
-	OUT_FMT_DEFAULT,
-	OUT_FMT_HEX,
-	OUT_FMT_RAW,
-	OUT_FMT_CARRAY,
-	OUT_FMT_XML,
-};
-
 /*
  * Options
  * Please keep in alphabetical order of the short option.
  * That makes it easier to see which options are still free.
  */
 enum Option {
-	OptI2CAdapter = 'a',
-	OptCheck = 'c',
-	OptCheckInline = 'C',
-	OptFBModeTimings = 'F',
 	OptHelp = 'h',
-	OptOnlyHexDump = 'H',
-	OptInfoFrame = 'I',
-	OptLongTimings = 'L',
-	OptNativeResolution = 'n',
-	OptNTSC = 'N',
-	OptOutputFormat = 'o',
-	OptPreferredTimings = 'p',
-	OptPhysicalAddress = 'P',
-	OptSkipHexDump = 's',
-	OptShortTimings = 'S',
-	OptUTF8 = 'u',
-	OptV4L2Timings = 'V',
-	OptXModeLineTimings = 'X',
-	OptSkipSHA = 128,
-	OptHideSerialNumbers,
-	OptReplaceUniqueIDs,
-	OptVersion,
-	OptDiag,
-	
-	OptI2CEDID,
-	OptI2CHDCP,
-	OptI2CHDCPRi,
-	OptI2CTestReliability,
-	OptSTD,
-	OptDMT,
-	OptVIC,
-	OptHDMIVIC,
-	OptCVT,
-	OptGTF,
-	OptOVT,
-	OptListEstTimings,
-	OptListDMTs,
-	OptListVICs,
-	OptListHDMIVICs,
-	OptListRIDTimings,
-	OptListRIDs,
-	OptLast = 256,
 	OptDirEdids = 'D'
 };
 
-static char options[OptLast];
+static char options[256];
 
 #ifndef __EMSCRIPTEN__
 static struct option long_options[] = {
 	{ "help", no_argument, 0, OptHelp },
-	{ "output-format", required_argument, 0, OptOutputFormat },
-	{ "native-resolution", no_argument, 0, OptNativeResolution },
-	{ "preferred-timings", no_argument, 0, OptPreferredTimings },
-	{ "physical-address", no_argument, 0, OptPhysicalAddress },
-	{ "skip-hex-dump", no_argument, 0, OptSkipHexDump },
-	{ "only-hex-dump", no_argument, 0, OptOnlyHexDump },
-	{ "skip-sha", no_argument, 0, OptSkipSHA },
-	{ "hide-serial-numbers", no_argument, 0, OptHideSerialNumbers },
-	{ "replace-unique-ids", no_argument, 0, OptReplaceUniqueIDs },
-	{ "utf8", no_argument, 0, OptUTF8 },
-	{ "version", no_argument, 0, OptVersion },
-	{ "check-inline", no_argument, 0, OptCheckInline },
-	{ "check", no_argument, 0, OptCheck },
-	{ "short-timings", no_argument, 0, OptShortTimings },
-	{ "long-timings", no_argument, 0, OptLongTimings },
-	{ "ntsc", no_argument, 0, OptNTSC },
-	{ "xmodeline", no_argument, 0, OptXModeLineTimings },
-	{ "fbmode", no_argument, 0, OptFBModeTimings },
-	{ "v4l2-timings", no_argument, 0, OptV4L2Timings },
-	{ "diagonal", required_argument, 0, OptDiag },
 	{ "directory", required_argument, 0, OptDirEdids },
-#ifdef __HAS_I2C_DEV__
-	{ "i2c-adapter", required_argument, 0, OptI2CAdapter },
-	{ "i2c-edid", no_argument, 0, OptI2CEDID },
-	{ "i2c-hdcp", no_argument, 0, OptI2CHDCP },
-	{ "i2c-hdcp-ri", required_argument, 0, OptI2CHDCPRi },
-	{ "i2c-test-reliability", optional_argument, 0, OptI2CTestReliability },
-#endif
-	{ "std", required_argument, 0, OptSTD },
-	{ "dmt", required_argument, 0, OptDMT },
-	{ "vic", required_argument, 0, OptVIC },
-	{ "hdmi-vic", required_argument, 0, OptHDMIVIC },
-	{ "cvt", required_argument, 0, OptCVT },
-	{ "gtf", required_argument, 0, OptGTF },
-	{ "ovt", required_argument, 0, OptOVT },
-	{ "list-established-timings", no_argument, 0, OptListEstTimings },
-	{ "list-dmts", no_argument, 0, OptListDMTs },
-	{ "list-vics", no_argument, 0, OptListVICs },
-	{ "list-hdmi-vics", no_argument, 0, OptListHDMIVICs },
-	{ "list-rid-timings", required_argument, 0, OptListRIDTimings },
-	{ "list-rids", no_argument, 0, OptListRIDs },
-	{ "infoframe", required_argument, 0, OptInfoFrame },
 	{ 0, 0, 0, 0 }
 };
 
 static void usage(void)
 {
-	printf("Usage: edid-decode <options> [in [out]]\n"
-	       "  [in]                  EDID file to parse. Read from standard input if none given\n"
-	       "                        and --infoframe was not used, or if the input filename is '-'.\n"
-	       "  [out]                 Output the read EDID to this file. Write to standard output\n"
-	       "                        if the output filename is '-'.\n"
+	printf("Usage: edid-decode input [-D directory-with-edid-files]\n"
+	       "  input                  EDID data to parse. Read from standard input\n"
 	       "\nOptions:\n"
-	       "  -o, --output-format <fmt>\n"
-	       "                        If [out] is specified, then write the EDID in this format.\n"
-	       "                        <fmt> is one of:\n"
-	       "                        hex:    hex numbers in ascii text (default for stdout)\n"
-	       "                        raw:    binary data (default unless writing to stdout)\n"
-	       "                        carray: c-program struct\n"
-	       "                        xml:    XML data\n"
-	       "  -c, --check           Check if the EDID conforms to the standards, failures and\n"
-	       "                        warnings are reported at the end.\n"
-	       "  -C, --check-inline    Check if the EDID conforms to the standards, failures and\n"
-	       "                        warnings are reported inline.\n"
-	       "  -n, --native-resolution Report the native resolution.\n"
-	       "  -p, --preferred-timings Report the preferred timings.\n"
-	       "  -P, --physical-address Only report the CEC physical address.\n"
-	       "  -S, --short-timings   Report all video timings in a short format.\n"
-	       "  -L, --long-timings    Report all video timings in a long format.\n"
-	       "  -N, --ntsc            Report the video timings suitable for NTSC-based video.\n"
-	       "  -X, --xmodeline       Report all long video timings in Xorg.conf format.\n"
-	       "  -F, --fbmode          Report all long video timings in fb.modes format.\n"
-	       "  -V, --v4l2-timings    Report all long video timings in v4l2-dv-timings.h format.\n"
-	       "  -s, --skip-hex-dump   Skip the initial hex dump of the EDID.\n"
-	       "  -H, --only-hex-dump   Only output the hex dump of the EDID.\n"
-		   "  -D, --directory       Directory with many edid files for sorting.\n"
-	       "  --skip-sha            Skip the SHA report.\n"
-	       "  --hide-serial-numbers Hide serial numbers with '...'.\n"
-	       "  --replace-unique-ids  Replace unique IDs (serial numbers, dates, Container IDs) with fixed values.\n"
-	       "  -u, --utf8            Convert strings in EDIDs to UTF-8.\n"
-	       "  --version             Show the edid-decode version (SHA).\n"
-	       "  --diagonal <inches>   Set the display's diagonal in inches.\n"
-#ifdef __HAS_I2C_DEV__
-	       "  -a, --i2c-adapter <dev> Use <dev> to access the DDC lines.\n"
-	       "                        If <dev> starts with a digit, then /dev/i2c-<dev> is used.\n"
-	       "  --i2c-edid		Read the EDID from the DDC lines.\n"
-	       "  --i2c-hdcp		Read the HDCP from the DDC lines.\n"
-	       "  --i2c-hdcp-ri=<t>	Read and print the HDCP Ri information every <t> seconds.\n"
-	       "  --i2c-test-reliability [cnt=<cnt>][,sleep=<msecs>]\n"
-	       "                        Read the EDID <cnt> times (0=forever), with a sleep of <msecs> milliseconds\n"
-	       "                        (default value is 50 ms) in between each read. Report a FAIL if there are\n"
-	       "                        mismatches between EDIDs. This tests the i2c communication towards the display.\n"
-#endif
-	       "  --std <byte1>,<byte2> Show the standard timing represented by these two bytes.\n"
-	       "  --dmt <dmt>           Show the timings for the DMT with the given DMT ID.\n"
-	       "  --vic <vic>           Show the timings for this VIC.\n"
-	       "  --hdmi-vic <hdmivic>  Show the timings for this HDMI VIC.\n"
-	       "  --cvt w=<width>,h=<height>,fps=<fps>[,rb=<rb>][,interlaced][,overscan][,alt][,hblank=<hblank>][,vblank=<vblank>][,early-vsync]\n"
-	       "                        Calculate the CVT timings for the given format.\n"
-	       "                        <fps> is frames per second for progressive timings,\n"
-	       "                        or fields per second for interlaced timings.\n"
-	       "                        <rb> can be 0 (no reduced blanking, default), or\n"
-	       "                        1-3 for the reduced blanking version.\n"
-	       "                        If 'interlaced' is given, then this is an interlaced format.\n"
-	       "                        If 'overscan' is given, then this is an overscanned format.\n"
-	       "                        If 'alt' is given and <rb>=2, then report the timings\n"
-	       "                        optimized for video: 1000 / 1001 * <fps>.\n"
-	       "                        If 'alt' is given and <rb>=3, then the horizontal blanking\n"
-	       "                        is 160 instead of 80 pixels.\n"
-	       "                        If 'hblank' is given and <rb>=3, then the horizontal blanking\n"
-	       "                        is <hblank> pixels (range of 80-200), overriding 'alt'.\n"
-	       "                        If 'vblank' is given and <rb>=3, then the vertical blanking\n"
-	       "                        time is <vblank> microseconds (range of 460-705 or 300-440).\n"
-	       "                        If 'early-vsync' is given and <rb=3>, then select early vsync.\n"
-	       "  --gtf w=<width>,h=<height>[,fps=<fps>][,horfreq=<horfreq>][,pixclk=<pixclk>][,interlaced]\n"
-	       "        [,overscan][,secondary][,C=<c>][,M=<m>][,K=<k>][,J=<j>]\n"
-	       "                        Calculate the GTF timings for the given format.\n"
-	       "                        <fps> is frames per second for progressive timings,\n"
-	       "                        or fields per second for interlaced timings.\n"
-	       "                        <horfreq> is the horizontal frequency in kHz.\n"
-	       "                        <pixclk> is the pixel clock frequency in MHz.\n"
-	       "                        Only one of fps, horfreq or pixclk must be given.\n"
-	       "                        If 'interlaced' is given, then this is an interlaced format.\n"
-	       "                        If 'overscan' is given, then this is an overscanned format.\n"
-	       "                        If 'secondary' is given, then the secondary GTF is used for\n"
-	       "                        reduced blanking, where <c>, <m>, <k> and <j> are parameters\n"
-	       "                        for the secondary curve.\n"
-	       "  --ovt (rid=<rid>|w=<width>,h=<height>),fps=<fps>\n"
-	       "                        Calculate the OVT timings for the given format.\n"
-	       "                        Either specify a RID or explicitly specify width and height.\n"
-	       "  --list-established-timings List all known Established Timings.\n"
-	       "  --list-dmts           List all known DMTs.\n"
-	       "  --list-vics           List all known VICs.\n"
-	       "  --list-hdmi-vics      List all known HDMI VICs.\n"
-	       "  --list-rids           List all known RIDs.\n"
-	       "  --list-rid-timings <rid> List all timings for RID <rid> or all known RIDs if <rid> is 0.\n"
-	       "  -I, --infoframe <file> Parse the InfoFrame from <file> that was sent to this display.\n"
-	       "                        This option can be specified multiple times for different InfoFrame files.\n"
-	       "  -h, --help            Display this help message.\n");
+	       "  -D, --directory       Directory with many edid files for sorting.\n"
+	       );
 }
 #endif
 
@@ -259,8 +82,6 @@ void msg(bool is_warn, const char *fmt, ...)
 	else
 		s_msgs[state.block_nr][is_warn] += "  " + state.data_block + ": " + buf;
 
-	if (options[OptCheckInline])
-		printf("%s: %s", is_warn ? "WARN" : "FAIL", buf);
 }
 
 static void show_msgs(bool is_warn)
@@ -602,11 +423,6 @@ bool edid_state::print_timings(const char *prefix, const struct timings *t,
 		return false;
 	}
 
-	if (detailed && options[OptShortTimings])
-		detailed = false;
-	if (options[OptLongTimings])
-		detailed = true;
-
 	unsigned vact = t->vact;
 	unsigned hbl = t->hfp + t->hsync + t->hbp + 2 * t->hborder;
 	unsigned vbl = t->vfp + t->vsync + t->vbp + 2 * t->vborder;
@@ -643,7 +459,7 @@ bool edid_state::print_timings(const char *prefix, const struct timings *t,
 
 	double refresh = t->pixclk_khz * 1000.0 / (htotal * vtotal);
 	double pixclk = t->pixclk_khz * 1000.0;
-	if (((ntsc > 1 && options[OptNTSC]) || ntsc == 1) && fmod(refresh, 6.0) == 0) {
+	if ((ntsc == 1) && fmod(refresh, 6.0) == 0) {
 		const double ntsc_fact = 1000.0 / 1001.0;
 		pixclk *= ntsc_fact;
 		refresh *= ntsc_fact;
@@ -685,14 +501,7 @@ bool edid_state::print_timings(const char *prefix, const struct timings *t,
 
 	unsigned len = strlen(prefix) + 2;
 
-	if (!t->ycbcr420 && detailed && options[OptXModeLineTimings])
-		print_modeline(len, t, refresh);
-	else if (!t->ycbcr420 && detailed && options[OptFBModeTimings])
-		print_fbmode(len, t, refresh, hor_freq_khz);
-	else if (!t->ycbcr420 && detailed && options[OptV4L2Timings])
-		print_v4l2_timing(t, refresh, type);
-	else if (detailed)
-		print_detailed_timing(len + strlen(type) + 6, t);
+	print_detailed_timing(len + strlen(type) + 6, t);
 
 	if (!do_checks)
 		return ok;
@@ -1454,7 +1263,6 @@ void edid_state::print_native_res()
 		}
 	}
 
-	if (!options[OptNativeResolution])
 		return;
 
 	if (native_width == 0 && native_width_int == 0) {
@@ -1512,37 +1320,19 @@ void edid_state::print_native_res()
 
 int edid_state::parse_edid()
 {
-	hide_serial_numbers = options[OptHideSerialNumbers];
-	replace_unique_ids = options[OptReplaceUniqueIDs];
-
-	to_utf8 = options[OptUTF8];
-
 	preparse_base_block(edid);
-	if (replace_unique_ids)
-		replace_checksum(edid, EDID_PAGE_SIZE);
 
 	for (unsigned i = 1; i < num_blocks; i++)
 		preparse_extension(edid + i * EDID_PAGE_SIZE);
 
-	if (options[OptPhysicalAddress]) {
-		printf("%x.%x.%x.%x\n",
-		       (cta.preparsed_phys_addr >> 12) & 0xf,
-		       (cta.preparsed_phys_addr >> 8) & 0xf,
-		       (cta.preparsed_phys_addr >> 4) & 0xf,
-		       cta.preparsed_phys_addr & 0xf);
-		return 0;
-	}
 
-	if (!options[OptSkipHexDump]) {
-		printf("edid-decode (hex):\n\n");
-		for (unsigned i = 0; i < num_blocks; i++) {
-			hex_block("", edid + i * EDID_PAGE_SIZE, EDID_PAGE_SIZE, false);
-			if (i == num_blocks - 1 && options[OptOnlyHexDump])
-				return 0;
-			printf("\n");
-		}
-		printf("----------------\n\n");
+	printf("edid-decode (hex):\n\n");
+	for (unsigned i = 0; i < num_blocks; i++) {
+		hex_block("", edid + i * EDID_PAGE_SIZE, EDID_PAGE_SIZE, false);
+		printf("\n");
 	}
+	printf("----------------\n\n");
+	
 
 	block = block_name(0x00);
 	printf("Block %u, %s:\n", block_nr, block.c_str());
@@ -1560,35 +1350,14 @@ int edid_state::parse_edid()
 	if (cta.has_svrs)
 		cta_resolve_svrs();
 
-	if (options[OptPreferredTimings])
-		print_preferred_timings();
-
 	print_native_res();
-
-	if (!options[OptCheck] && !options[OptCheckInline])
-		return 0;
 
 	check_base_block(edid);
 	if (has_cta)
 		check_cta_blocks();
 	if (has_dispid)
 		check_displayid_blocks();
-
-	printf("\n----------------\n");
-
-	if (!options[OptSkipSHA] && strlen(STRING(SHA))) {
-		options[OptSkipSHA] = 1;
-		printf("\nedid-decode SHA: %s %s\n", STRING(SHA), STRING(DATE));
-	}
-
-	if (options[OptCheck]) {
-		if (warnings)
-			show_msgs(true);
-		if (failures)
-			show_msgs(false);
-	}
-	printf("\nEDID conformity: %s\n", failures ? "FAIL" : "PASS");
-	return failures ? -2 : 0;
+	return 0;
 }
 
 /* InfoFrame parsing */
@@ -1732,13 +1501,11 @@ int edid_state::parse_if(const std::string &fname)
 	state.block_nr = 0;
 	state.data_block.clear();
 
-	if (!options[OptSkipHexDump]) {
-		printf("edid-decode InfoFrame (hex):\n\n");
-		hex_block("", infoframe, if_size, false);
-		if (options[OptOnlyHexDump])
-			return 0;
-		printf("\n----------------\n\n");
-	}
+
+	printf("edid-decode InfoFrame (hex):\n\n");
+	hex_block("", infoframe, if_size, false);
+	printf("\n----------------\n\n");
+	
 
 	if (infoframe[0] >= 0x80) {
 		is_hdmi = true;
@@ -1787,28 +1554,7 @@ int edid_state::parse_if(const std::string &fname)
 			fail("Forbidden InfoFrame type %hhx.\n", infoframe[0]);
 		break;
 	}
-
-	if (!options[OptCheck] && !options[OptCheckInline])
-		return 0;
-
-	printf("\n----------------\n");
-
-	if (!options[OptSkipSHA] && strlen(STRING(SHA))) {
-		options[OptSkipSHA] = 1;
-		printf("\nedid-decode SHA: %s %s\n", STRING(SHA), STRING(DATE));
-	}
-
-	if (options[OptCheck]) {
-		if (warnings)
-			show_if_msgs(true);
-		if (failures)
-			show_if_msgs(false);
-	}
-
-	printf("\n%s conformity: %s\n",
-	       state.data_block.empty() ? "InfoFrame" : state.data_block.c_str(),
-	       failures ? "FAIL" : "PASS");
-	return failures ? -2 : 0;
+	return 0;
 }
 
 #ifndef __EMSCRIPTEN__
@@ -1826,106 +1572,6 @@ static unsigned char crc_calc(const unsigned char *b)
 static int crc_ok(const unsigned char *b)
 {
 	return crc_calc(b) == b[127];
-}
-
-static void hexdumpedid(FILE *f, const unsigned char *edid, unsigned size)
-{
-	unsigned b, i, j;
-
-	for (b = 0; b < size / 128; b++) {
-		const unsigned char *buf = edid + 128 * b;
-
-		if (b)
-			fprintf(f, "\n");
-		for (i = 0; i < 128; i += 0x10) {
-			fprintf(f, "%02x", buf[i]);
-			for (j = 1; j < 0x10; j++) {
-				fprintf(f, " %02x", buf[i + j]);
-			}
-			fprintf(f, "\n");
-		}
-		if (!crc_ok(buf))
-			fprintf(f, "Block %u has a checksum error (should be 0x%02x).\n",
-				b, crc_calc(buf));
-	}
-}
-
-static void carraydumpedid(FILE *f, const unsigned char *edid, unsigned size)
-{
-	unsigned b, i, j;
-
-	fprintf(f, "const unsigned char edid[] = {\n");
-	for (b = 0; b < size / 128; b++) {
-		const unsigned char *buf = edid + 128 * b;
-
-		if (b)
-			fprintf(f, "\n");
-		for (i = 0; i < 128; i += 8) {
-			fprintf(f, "\t0x%02x,", buf[i]);
-			for (j = 1; j < 8; j++) {
-				fprintf(f, " 0x%02x,", buf[i + j]);
-			}
-			fprintf(f, "\n");
-		}
-		if (!crc_ok(buf))
-			fprintf(f, "\t/* Block %u has a checksum error (should be 0x%02x). */\n",
-				b, crc_calc(buf));
-	}
-	fprintf(f, "};\n");
-}
-
-// This format can be read by the QuantumData EDID editor
-static void xmldumpedid(FILE *f, const unsigned char *edid, unsigned size)
-{
-	fprintf(f, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
-	fprintf(f, "<DATAOBJ>\n");
-	fprintf(f, "    <HEADER TYPE=\"DID\" VERSION=\"1.0\"/>\n");
-	fprintf(f, "    <DATA>\n");
-	for (unsigned b = 0; b < size / 128; b++) {
-		const unsigned char *buf = edid + 128 * b;
-
-		fprintf(f, "        <BLOCK%u>", b);
-		for (unsigned i = 0; i < 128; i++)
-			fprintf(f, "%02X", buf[i]);
-		fprintf(f, "</BLOCK%u>\n", b);
-	}
-	fprintf(f, "    </DATA>\n");
-	fprintf(f, "</DATAOBJ>\n");
-}
-
-static int edid_to_file(const char *to_file, enum output_format out_fmt)
-{
-	FILE *out;
-
-	if (!strcmp(to_file, "-")) {
-		to_file = "stdout";
-		out = stdout;
-	} else if ((out = fopen(to_file, "w")) == NULL) {
-		perror(to_file);
-		return -1;
-	}
-	if (out_fmt == OUT_FMT_DEFAULT)
-		out_fmt = out == stdout ? OUT_FMT_HEX : OUT_FMT_RAW;
-
-	switch (out_fmt) {
-	default:
-	case OUT_FMT_HEX:
-		hexdumpedid(out, edid, state.edid_size);
-		break;
-	case OUT_FMT_RAW:
-		fwrite(edid, state.edid_size, 1, out);
-		break;
-	case OUT_FMT_CARRAY:
-		carraydumpedid(out, edid, state.edid_size);
-		break;
-	case OUT_FMT_XML:
-		xmldumpedid(out, edid, state.edid_size);
-		break;
-	}
-
-	if (out != stdout)
-		fclose(out);
-	return 0;
 }
 
 enum cvt_opts {
@@ -2475,7 +2121,6 @@ static void sort_edids_to_table(char* filepath) {
 int main(int argc, char **argv)
 {
 	char short_options[26 * 2 * 3 + 1];
-	enum output_format out_fmt = OUT_FMT_DEFAULT;
 	gtf_parsed_data gtf_data;
 	unsigned list_rid = 0;
 	int adapter_fd = -1;
@@ -2529,104 +2174,8 @@ int main(int argc, char **argv)
 		case OptHelp:
 			usage();
 			return -1;
-		case OptOutputFormat:
-			if (!strcmp(optarg, "hex")) {
-				out_fmt = OUT_FMT_HEX;
-			} else if (!strcmp(optarg, "raw")) {
-				out_fmt = OUT_FMT_RAW;
-			} else if (!strcmp(optarg, "carray")) {
-				out_fmt = OUT_FMT_CARRAY;
-			} else if (!strcmp(optarg, "xml")) {
-				out_fmt = OUT_FMT_XML;
-			} else {
-				usage();
-				exit(1);
-			}
-			break;
-		case OptDiag:
-			state.diagonal = strtod(optarg, NULL);
-			break;
 		case OptDirEdids:
 			sort_edids_to_table(optarg);
-			break;
-#ifdef __HAS_I2C_DEV__
-		case OptI2CAdapter: {
-			std::string device = optarg;
-
-			if (device[0] >= '0' && device[0] <= '9' && device.length() <= 3) {
-				static char newdev[20];
-
-				sprintf(newdev, "/dev/i2c-%s", optarg);
-				device = newdev;
-			}
-
-			adapter_fd = request_i2c_adapter(device.c_str());
-			if (adapter_fd < 0)
-				exit(1);
-			break;
-		}
-		case OptI2CTestReliability:
-			if (optarg)
-				parse_test_reliability(optarg, test_rel_cnt, test_rel_msleep);
-			break;
-#endif
-		case OptI2CHDCPRi:
-			hdcp_ri_sleep = strtod(optarg, NULL);
-			break;
-		case OptSTD: {
-			unsigned char byte1, byte2 = 0;
-			char *endptr;
-
-			byte1 = strtoul(optarg, &endptr, 0);
-			if (*endptr == ',')
-				byte2 = strtoul(endptr + 1, NULL, 0);
-			state.print_standard_timing("", byte1, byte2, false, true);
-			break;
-		}
-		case OptDMT:
-			val = strtoul(optarg, NULL, 0);
-			t = find_dmt_id(val);
-			if (t) {
-				sprintf(buf, "DMT 0x%02x", val);
-				state.print_timings("", t, buf, "", true, false);
-			} else {
-				fprintf(stderr, "Unknown DMT code 0x%02x.\n", val);
-			}
-			break;
-		case OptVIC:
-			val = strtoul(optarg, NULL, 0);
-			t = find_vic_id(val);
-			if (t) {
-				sprintf(buf, "VIC %3u", val);
-				state.print_timings("", t, buf, "", true, false);
-			} else {
-				fprintf(stderr, "Unknown VIC code %u.\n", val);
-			}
-			break;
-		case OptHDMIVIC:
-			val = strtoul(optarg, NULL, 0);
-			t = find_hdmi_vic_id(val);
-			if (t) {
-				sprintf(buf, "HDMI VIC %u", val);
-				state.print_timings("", t, buf, "", true, false);
-			} else {
-				fprintf(stderr, "Unknown HDMI VIC code %u.\n", val);
-			}
-			break;
-		case OptCVT:
-			parse_cvt(optarg);
-			break;
-		case OptGTF:
-			parse_gtf(optarg, gtf_data);
-			break;
-		case OptOVT:
-			parse_ovt(optarg);
-			break;
-		case OptListRIDTimings:
-			list_rid = strtoul(optarg, NULL, 0);
-			break;
-		case OptInfoFrame:
-			if_names.push_back(optarg);
 			break;
 		case ':':
 			fprintf(stderr, "Option '%s' requires a value.\n",
@@ -2640,100 +2189,13 @@ int main(int argc, char **argv)
 			return -1;
 		}
 	}
-	if (optind == argc && options[OptVersion]) {
-		if (strlen(STRING(SHA)))
-			printf("edid-decode SHA: %s %s\n", STRING(SHA), STRING(DATE));
-		else
-			printf("edid-decode SHA: not available\n");
-		return 0;
-	}
-
-	if (options[OptListEstTimings])
-		state.list_established_timings();
-	if (options[OptListDMTs])
-		state.list_dmts();
-	if (options[OptListVICs])
-		state.cta_list_vics();
-	if (options[OptListHDMIVICs])
-		state.cta_list_hdmi_vics();
-	if (options[OptListRIDs])
-		state.cta_list_rids();
-	if (options[OptListRIDTimings])
-		state.cta_list_rid_timings(list_rid);
-
-	if (options[OptListEstTimings] || options[OptListDMTs] ||
-	    options[OptListVICs] || options[OptListHDMIVICs] ||
-	    options[OptListRIDs] || options[OptListRIDTimings])
-		return 0;
-
-	if (options[OptCVT] || options[OptDMT] || options[OptVIC] ||
-	    options[OptHDMIVIC] || options[OptSTD] || options[OptOVT])
-		return 0;
-
-	if (options[OptGTF] && (!gtf_data.params_from_edid || optind == argc)) {
-		show_gtf(gtf_data);
-		return 0;
-	}
 
 	if (optind == argc) {
-		if (adapter_fd >= 0 && options[OptI2CEDID]) {
-			ret = read_edid(adapter_fd, edid);
-			if (ret > 0) {
-				state.edid_size = ret * EDID_PAGE_SIZE;
-				state.num_blocks = ret;
-				ret = 0;
-			}
-		} else if (adapter_fd >= 0) {
-			if (options[OptI2CHDCP])
-				ret = read_hdcp(adapter_fd);
-			if (options[OptI2CHDCPRi])
-				ret = read_hdcp_ri(adapter_fd, hdcp_ri_sleep);
-			if (options[OptI2CTestReliability])
-				ret = test_reliability(adapter_fd, test_rel_cnt, test_rel_msleep);
-		} else if (options[OptInfoFrame] && !options[OptGTF]) {
-			ret = 0;
-		} else {
-			ret = edid_from_file("-", stdout);
-		}
+		ret = edid_from_file("-", stdout);
 	} else {
 		ret = edid_from_file(argv[optind], argv[optind + 1] ? stderr : stdout);
 	}
-
-	if (ret && options[OptPhysicalAddress]) {
-		printf("f.f.f.f\n");
-		return 0;
-	}
-	if (optind < argc - 1)
-		return ret ? ret : edid_to_file(argv[optind + 1], out_fmt);
-
-	if (options[OptGTF]) {
-		timings t;
-
-		state.preparse_base_block(edid);
-
-		t = state.calc_gtf_mode(gtf_data.w, gtf_data.h, gtf_data.freq,
-					gtf_data.interlaced, gtf_data.ip_parm,
-					gtf_data.overscan);
-		unsigned hbl = t.hfp + t.hsync + t.hbp;
-		unsigned htotal = t.hact + hbl;
-		double hor_freq_khz = htotal ? (double)t.pixclk_khz / htotal : 0;
-
-		if (state.base.supports_sec_gtf &&
-		    hor_freq_khz >= state.base.sec_gtf_start_freq) {
-			t = state.calc_gtf_mode(gtf_data.w, gtf_data.h, gtf_data.freq,
-						gtf_data.interlaced, gtf_data.ip_parm,
-						gtf_data.overscan, true,
-						state.base.C, state.base.M,
-						state.base.K, state.base.J);
-		}
-		calc_ratio(&t);
-		if (t.hfp <= 0)
-			state.print_timings("", &t, "GTF", "INVALID: Hfront <= 0", true, false);
-		else
-			state.print_timings("", &t, "GTF", "", true, false);
-		return 0;
-	}
-
+	
 	if (!ret && state.edid_size)
 		ret = state.parse_edid();
 
@@ -2754,29 +2216,6 @@ int main(int argc, char **argv)
 			ret = r;
 	}
 	return ret;
-}
-
-#else
-
-/*
- * The surrounding JavaScript implementation will call this function
- * each time it wants to decode an EDID. So this should reset all the
- * state and start over.
- */
-extern "C" int parse_edid(const char *input)
-{
-	for (unsigned i = 0; i < EDID_MAX_BLOCKS + 1; i++) {
-		s_msgs[i][0].clear();
-		s_msgs[i][1].clear();
-	}
-	options[OptCheck] = 1;
-	options[OptPreferredTimings] = 1;
-	options[OptNativeResolution] = 1;
-	options[OptSkipSHA] = 0;
-	options[OptUTF8] = 1;
-	state = edid_state();
-	int ret = edid_from_file(input, stderr);edid_d
-	return ret ? ret : state.parse_edid();
 }
 
 #endif
